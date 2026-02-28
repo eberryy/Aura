@@ -39,8 +39,11 @@ export interface Comment {
   parent_id: string | null;
   author_name: string;
   author_avatar?: string;
+  anonymous_id?: string;
   content: string;
   is_admin: boolean;
+  is_author?: boolean;
+  depth?: number;
   created_at: string;
   updated_at: string;
   replies?: Comment[];

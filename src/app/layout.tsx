@@ -4,6 +4,7 @@ import { ThemeProvider } from "@/hooks/useTheme";
 import { AuthProvider } from "@/hooks/useAuth";
 import { Header } from "@/components/shared/Header";
 import { Footer } from "@/components/shared/Footer";
+import { Toaster } from "sonner";
 
 export const metadata: Metadata = {
   title: "Aura - 个人数字空间",
@@ -43,6 +44,17 @@ export default function RootLayout({
             <Header />
             <main className="flex-1 pt-16">{children}</main>
             <Footer />
+            <Toaster
+              position="top-center"
+              toastOptions={{
+                style: {
+                  background:
+                    "linear-gradient(135deg, #7c3aed 0%, #a855f7 100%)",
+                  color: "white",
+                  border: "none",
+                },
+              }}
+            />
           </ThemeProvider>
         </AuthProvider>
       </body>

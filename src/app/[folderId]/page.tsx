@@ -4,7 +4,7 @@ import { useEffect, useState, use } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
-import { ArrowLeft, Lock, Calendar, Edit2, FileText, ChevronRight } from 'lucide-react';
+import { ArrowLeft, Lock, Calendar, Edit2, FileText, ChevronRight, Plus, Trash2 } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { folderService, postService } from '@/services/api';
@@ -14,6 +14,8 @@ import { useTheme } from '@/hooks/useTheme';
 import { useAuth } from '@/hooks/useAuth';
 import { PrivateModeBackground } from '@/components/shared/PrivateModeBackground';
 import FileCardSkeleton from '@/components/shared/FileCardSkeleton';
+import DeleteConfirmDialog from '@/components/admin/DeleteConfirmDialog';
+import { toast } from 'sonner';
 
 interface FolderPageProps {
   params: Promise<{ folderId: string }>;
@@ -28,35 +30,37 @@ export default function FolderPage({ params }: FolderPageProps) {
   const [files, setFiles] = useState<Post[]>([]);
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
+  const [editingPost, setEditingPost] = useState<Post | null>(null);
+  const [deletingPost, setDeletingPost] = useState<Post | null>(null);
+
+  const fetchData = async () => {
+    setLoading(true);
+    const folderResponse = await folderService.getById(folderId);
+    if (folderResponse.error || !folderResponse.data) {
+      setNotFound(true);
+      setLoading(false);
+      return;
+    }
+
+    const folderData = folderResponse.data;
+    setFolder(folderData);
+
+    if (folderData.is_private && !isAuthenticated && !authLoading) {
+      router.push('/');
+      return;
+    }
+
+    setPrivateMode(folderData.is_private);
+
+    const postsResponse = await postService.getByFolderId(folderId);
+    if (postsResponse.data) {
+      setFiles(postsResponse.data.data);
+    }
+
+    setLoading(false);
+  };
 
   useEffect(() => {
-    const fetchData = async () => {
-      setLoading(true);
-      const folderResponse = await folderService.getById(folderId);
-      if (folderResponse.error || !folderResponse.data) {
-        setNotFound(true);
-        setLoading(false);
-        return;
-      }
-
-      const folderData = folderResponse.data;
-      setFolder(folderData);
-
-      if (folderData.is_private && !isAuthenticated && !authLoading) {
-        router.push('/');
-        return;
-      }
-
-      setPrivateMode(folderData.is_private);
-
-      const postsResponse = await postService.getByFolderId(folderId);
-      if (postsResponse.data) {
-        setFiles(postsResponse.data.data);
-      }
-
-      setLoading(false);
-    };
-
     fetchData();
   }, [folderId, isAuthenticated, authLoading]);
 
@@ -65,6 +69,29 @@ export default function FolderPage({ params }: FolderPageProps) {
       router.push('/');
     }
   }, [folder, isAuthenticated, authLoading]);
+
+  const handleUpdatePost = async (data: Partial<Post>) => {
+    if (!editingPost) return;
+    const response = await postService.update(editingPost.id, data);
+    if (response.data) {
+      toast.success('文章更新成功');
+      fetchData();
+    } else {
+      toast.error('更新失败');
+    }
+  };
+
+  const handleDeletePost = async () => {
+    if (!deletingPost) return;
+    const response = await postService.delete(deletingPost.id);
+    if (response.data) {
+      toast.success('文章已删除');
+      setDeletingPost(null);
+      fetchData();
+    } else {
+      toast.error('删除失败');
+    }
+  };
 
   if (notFound) {
     return (
@@ -213,61 +240,107 @@ export default function FolderPage({ params }: FolderPageProps) {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               transition={{ delay: 0.2 }}
+              className="mb-6"
             >
-              <h2
-                className={cn(
-                  "text-xl font-semibold mb-6",
-                  isPrivateMode
-                    ? "text-white"
-                    : "text-gray-900 dark:text-white",
-                )}
-              >
-                文件列表
-              </h2>
-
-              {files.length === 0 ? (
-                <Card
+              <div className="flex items-center justify-between">
+                <h2
                   className={cn(
+                    "text-xl font-semibold",
                     isPrivateMode
-                      ? "bg-white/5 border-purple-500/20"
-                      : "dark:bg-gray-800/50",
+                      ? "text-white"
+                      : "text-gray-900 dark:text-white",
                   )}
                 >
-                  <CardContent className="py-12 text-center">
-                    <p
+                  文件列表
+                </h2>
+                {isAuthenticated && (
+                  <Link href={`/create?folderId=${folderId}`}>
+                    <Button
                       className={cn(
+                        "gap-2",
                         isPrivateMode
-                          ? "text-gray-400"
-                          : "text-gray-500 dark:text-gray-400",
+                          ? "bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700"
+                          : "",
                       )}
                     >
-                      暂无文件
-                    </p>
-                  </CardContent>
-                </Card>
-              ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {files.map((file, index) => (
-                    <motion.div
-                      key={file.id}
-                      initial={{ opacity: 0, y: 20 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ delay: index * 0.1 }}
-                    >
-                      <FileCard file={file} isPrivateMode={isPrivateMode} />
-                    </motion.div>
-                  ))}
-                </div>
-              )}
+                      <Plus size={16} />
+                      发布文章
+                    </Button>
+                  </Link>
+                )}
+              </div>
             </motion.div>
+
+            {files.length === 0 ? (
+              <Card
+                className={cn(
+                  isPrivateMode
+                    ? "bg-white/5 border-purple-500/20"
+                    : "dark:bg-gray-800/50",
+                )}
+              >
+                <CardContent className="py-12 text-center">
+                  <p
+                    className={cn(
+                      isPrivateMode
+                        ? "text-gray-400"
+                        : "text-gray-500 dark:text-gray-400",
+                    )}
+                  >
+                    暂无文件
+                  </p>
+                </CardContent>
+              </Card>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {files.map((file, index) => (
+                  <motion.div
+                    key={file.id}
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: index * 0.1 }}
+                    className="relative group"
+                  >
+                    <FileCard
+                      file={file}
+                      isPrivateMode={isPrivateMode}
+                      isAuthenticated={isAuthenticated}
+                      folderId={folderId}
+                      onDelete={() => setDeletingPost(file)}
+                    />
+                  </motion.div>
+                ))}
+              </div>
+            )}
           </>
         ) : null}
       </div>
+
+      <DeleteConfirmDialog
+        isOpen={!!deletingPost}
+        onClose={() => setDeletingPost(null)}
+        onConfirm={handleDeletePost}
+        title="删除文章"
+        message={`确定要删除「${deletingPost?.title}」吗？此操作不可撤销。`}
+        isPrivateMode={isPrivateMode}
+      />
     </div>
   );
 }
 
-function FileCard({ file, isPrivateMode }: { file: Post; isPrivateMode: boolean }) {
+function FileCard({
+  file,
+  isPrivateMode,
+  isAuthenticated,
+  folderId,
+  onDelete,
+}: {
+  file: Post;
+  isPrivateMode: boolean;
+  isAuthenticated: boolean;
+  folderId: string;
+  onDelete: () => void;
+}) {
   const router = useRouter();
 
   return (
@@ -368,6 +441,44 @@ function FileCard({ file, isPrivateMode }: { file: Post; isPrivateMode: boolean 
               {new Date(file.updated_at).toLocaleDateString('zh-CN')}
             </div>
           </div>
+
+          {isAuthenticated && (
+            <div
+              className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity z-10"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <Link
+                href={`/create?folderId=${folderId}&editPostId=${file.id}`}
+                onClick={(e) => e.stopPropagation()}
+              >
+                <button
+                  className={cn(
+                    "p-2 rounded-lg transition-colors",
+                    isPrivateMode
+                      ? "bg-white/10 text-gray-400 hover:text-white hover:bg-white/20"
+                      : "bg-gray-100 text-gray-600 hover:text-indigo-600",
+                  )}
+                >
+                  <Edit2 size={14} />
+                </button>
+              </Link>
+              <button
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  onDelete();
+                }}
+                className={cn(
+                  "p-2 rounded-lg transition-colors",
+                  isPrivateMode
+                    ? "bg-white/10 text-gray-400 hover:text-red-400 hover:bg-red-500/20"
+                    : "bg-gray-100 text-gray-600 hover:text-red-600",
+                )}
+              >
+                <Trash2 size={14} />
+              </button>
+            </div>
+          )}
         </CardContent>
       </Card>
     </motion.div>
@@ -392,18 +503,7 @@ function FolderDetailSkeleton() {
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {Array.from({ length: 4 }).map((_, i) => (
-          <Card key={i}>
-            <CardContent className="p-5">
-              <div className="space-y-3">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded bg-gray-200 dark:bg-gray-700 animate-pulse" />
-                  <div className="h-5 w-3/4 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
-                </div>
-                <div className="h-4 w-full bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
-                <div className="h-4 w-2/3 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
-              </div>
-            </CardContent>
-          </Card>
+          <FileCardSkeleton key={i} isPrivateMode={false} />
         ))}
       </div>
     </div>

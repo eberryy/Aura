@@ -6,6 +6,8 @@ import {
   ApiResponse,
   PaginatedResponse,
 } from "@/types";
+import { getStorageItem, setStorageItem, STORAGE_KEYS } from "@/lib/storage";
+import { buildCommentTree } from "@/lib/commentTree";
 
 const mockFolders: Folder[] = [
   {
@@ -48,9 +50,25 @@ const mockPosts: Post[] = [
     id: "1",
     folder_id: "1",
     title: "Next.js 15 新特性探索",
-    content: "Next.js 15 带来了许多令人兴奋的新特性...",
+    content: `# Next.js 15 新特性探索
+
+Next.js 15 带来了许多令人兴奋的新特性...
+
+## 主要更新
+
+### 1. 改进的 App Router
+- 更快的路由切换
+- 更好的错误处理
+
+### 2. 服务端组件优化
+- 流式渲染增强
+- 更小的打包体积
+
+## 总结
+
+这次更新让 Next.js 变得更加强大和易用。`,
     content_type: "article",
-    summary: "探索 Next.js 15 的最新特性和改进",
+    summary: "探索 Next.js 15 的最新特性",
     tags: ["Next.js", "React", "前端"],
     is_pinned: true,
     is_draft: false,
@@ -61,50 +79,38 @@ const mockPosts: Post[] = [
   {
     id: "2",
     folder_id: "1",
-    title: "TypeScript 5.4 更新详解",
-    content: "TypeScript 5.4 引入了许多新特性...",
+    title: "TypeScript 高级类型技巧",
+    content: `# TypeScript 高级类型技巧
+
+深入探讨 TypeScript 的高级类型系统...`,
     content_type: "article",
-    summary: "深入了解 TypeScript 5.4 的新特性",
+    summary: "TypeScript 类型体操入门",
     tags: ["TypeScript", "前端"],
     is_pinned: false,
     is_draft: false,
-    view_count: 856,
-    created_at: "2024-01-12T14:30:00Z",
-    updated_at: "2024-01-12T14:30:00Z",
+    view_count: 567,
+    created_at: "2024-01-10T14:00:00Z",
+    updated_at: "2024-01-10T14:00:00Z",
   },
   {
     id: "3",
     folder_id: "2",
-    title: "京都之旅",
-    content: "在京都的每一天都充满惊喜...",
+    title: "冬日摄影记录",
+    content: `# 冬日摄影记录
+
+记录这个冬天的美好瞬间...`,
     content_type: "article",
-    summary: "我的京都之旅详细记录",
-    tags: ["旅行", "摄影", "日本"],
+    summary: "冬日风景摄影作品",
+    tags: ["摄影", "生活"],
     is_pinned: false,
     is_draft: false,
-    view_count: 2341,
-    created_at: "2024-01-10T09:00:00Z",
-    updated_at: "2024-01-10T09:00:00Z",
-  },
-  {
-    id: "4",
-    folder_id: "2",
-    title: "日落延时摄影",
-    content: "记录城市日落的美好时刻",
-    content_type: "video",
-    summary: "城市日落延时摄影作品",
-    video_url: "https://example.com/video1.mp4",
-    video_description: "使用索尼A7M4拍摄，后期使用DaVinci Resolve调色",
-    tags: ["摄影", "延时摄影"],
-    is_pinned: false,
-    is_draft: false,
-    view_count: 5678,
+    view_count: 890,
     created_at: "2024-01-08T18:00:00Z",
     updated_at: "2024-01-08T18:00:00Z",
   },
 ];
 
-const mockComments: Comment[] = [
+const initialComments: Comment[] = [
   {
     id: "1",
     post_id: "1",
@@ -139,6 +145,53 @@ const mockComments: Comment[] = [
   },
 ];
 
+function getStoredFolders(): Folder[] {
+  return getStorageItem<Folder[]>(STORAGE_KEYS.FOLDERS, mockFolders);
+}
+
+function setStoredFolders(folders: Folder[]): void {
+  setStorageItem(STORAGE_KEYS.FOLDERS, folders);
+}
+
+function getStoredPosts(): Post[] {
+  return getStorageItem<Post[]>(STORAGE_KEYS.POSTS, mockPosts);
+}
+
+function setStoredPosts(posts: Post[]): void {
+  setStorageItem(STORAGE_KEYS.POSTS, posts);
+}
+
+function getStoredComments(): Comment[] {
+  return getStorageItem<Comment[]>(STORAGE_KEYS.COMMENTS, initialComments);
+}
+
+function setStoredComments(comments: Comment[]): void {
+  setStorageItem(STORAGE_KEYS.COMMENTS, comments);
+}
+
+function initializeStorage(): void {
+  if (typeof window === "undefined") return;
+
+  const storedFolders = localStorage.getItem(STORAGE_KEYS.FOLDERS);
+  if (!storedFolders) {
+    setStoredFolders(mockFolders);
+  }
+
+  const storedPosts = localStorage.getItem(STORAGE_KEYS.POSTS);
+  if (!storedPosts) {
+    setStoredPosts(mockPosts);
+  }
+
+  const storedComments = localStorage.getItem(STORAGE_KEYS.COMMENTS);
+  if (!storedComments) {
+    setStoredComments(initialComments);
+  }
+}
+
+if (typeof window !== "undefined") {
+  initializeStorage();
+}
+
 const mockUser: User = {
   id: "1",
   username: "aura",
@@ -154,7 +207,7 @@ const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 export const folderService = {
   async getAll(includePrivate = false): Promise<ApiResponse<Folder[]>> {
     await delay(300);
-    let folders = [...mockFolders];
+    let folders = getStoredFolders();
     if (!includePrivate) {
       folders = folders.filter((f) => !f.is_private);
     }
@@ -163,7 +216,8 @@ export const folderService = {
 
   async getById(id: string): Promise<ApiResponse<Folder>> {
     await delay(200);
-    const folder = mockFolders.find((f) => f.id === id);
+    const folders = getStoredFolders();
+    const folder = folders.find((f) => f.id === id);
     if (!folder) {
       return { data: null, error: "Folder not found", status: 404 };
     }
@@ -178,11 +232,55 @@ export const folderService = {
       description: data.description || "",
       type: data.type || "tech",
       is_private: data.is_private || false,
+      icon: data.icon,
       post_count: 0,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     };
+
+    const folders = getStoredFolders();
+    folders.push(newFolder);
+    setStoredFolders(folders);
+
     return { data: newFolder, error: null, status: 201 };
+  },
+
+  async update(
+    id: string,
+    data: Partial<Folder>,
+  ): Promise<ApiResponse<Folder>> {
+    await delay(300);
+    const folders = getStoredFolders();
+    const index = folders.findIndex((f) => f.id === id);
+
+    if (index === -1) {
+      return { data: null, error: "Folder not found", status: 404 };
+    }
+
+    const updatedFolder: Folder = {
+      ...folders[index],
+      ...data,
+      updated_at: new Date().toISOString(),
+    };
+
+    folders[index] = updatedFolder;
+    setStoredFolders(folders);
+
+    return { data: updatedFolder, error: null, status: 200 };
+  },
+
+  async delete(id: string): Promise<ApiResponse<boolean>> {
+    await delay(300);
+
+    const folders = getStoredFolders();
+    const filteredFolders = folders.filter((f) => f.id !== id);
+    setStoredFolders(filteredFolders);
+
+    const posts = getStoredPosts();
+    const filteredPosts = posts.filter((p) => p.folder_id !== id);
+    setStoredPosts(filteredPosts);
+
+    return { data: true, error: null, status: 200 };
   },
 };
 
@@ -193,10 +291,11 @@ export const postService = {
     pageSize = 10,
   ): Promise<ApiResponse<PaginatedResponse<Post>>> {
     await delay(300);
-    let posts = mockPosts.filter((p) => p.folder_id === folderId);
-    const total = posts.length;
+    const posts = getStoredPosts();
+    let filteredPosts = posts.filter((p) => p.folder_id === folderId);
+    const total = filteredPosts.length;
     const start = (page - 1) * pageSize;
-    const paginatedPosts = posts.slice(start, start + pageSize);
+    const paginatedPosts = filteredPosts.slice(start, start + pageSize);
 
     return {
       data: {
@@ -217,12 +316,13 @@ export const postService = {
     pageSize = 10,
   ): Promise<ApiResponse<PaginatedResponse<Post>>> {
     await delay(300);
-    let posts = folderId
-      ? mockPosts.filter((p) => p.folder_id === folderId)
-      : mockPosts;
-    const total = posts.length;
+    const posts = getStoredPosts();
+    let filteredPosts = folderId
+      ? posts.filter((p) => p.folder_id === folderId)
+      : posts;
+    const total = filteredPosts.length;
     const start = (page - 1) * pageSize;
-    const paginatedPosts = posts.slice(start, start + pageSize);
+    const paginatedPosts = filteredPosts.slice(start, start + pageSize);
 
     return {
       data: {
@@ -239,7 +339,8 @@ export const postService = {
 
   async getById(id: string): Promise<ApiResponse<Post>> {
     await delay(200);
-    const post = mockPosts.find((p) => p.id === id);
+    const posts = getStoredPosts();
+    const post = posts.find((p) => p.id === id);
     if (!post) {
       return { data: null, error: "Post not found", status: 404 };
     }
@@ -259,31 +360,66 @@ export const postService = {
       video_url: data.video_url,
       video_description: data.video_description,
       tags: data.tags || [],
-      is_pinned: false,
+      is_pinned: data.is_pinned || false,
       is_draft: data.is_draft || false,
       view_count: 0,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     };
+
+    const posts = getStoredPosts();
+    posts.push(newPost);
+    setStoredPosts(posts);
+
+    const folders = getStoredFolders();
+    const folderIndex = folders.findIndex((f) => f.id === newPost.folder_id);
+    if (folderIndex !== -1) {
+      folders[folderIndex].post_count += 1;
+      setStoredFolders(folders);
+    }
+
     return { data: newPost, error: null, status: 201 };
   },
 
   async update(id: string, data: Partial<Post>): Promise<ApiResponse<Post>> {
     await delay(300);
-    const postIndex = mockPosts.findIndex((p) => p.id === id);
-    if (postIndex === -1) {
+    const posts = getStoredPosts();
+    const index = posts.findIndex((p) => p.id === id);
+
+    if (index === -1) {
       return { data: null, error: "Post not found", status: 404 };
     }
-    const updatedPost = {
-      ...mockPosts[postIndex],
+
+    const updatedPost: Post = {
+      ...posts[index],
       ...data,
       updated_at: new Date().toISOString(),
     };
+
+    posts[index] = updatedPost;
+    setStoredPosts(posts);
+
     return { data: updatedPost, error: null, status: 200 };
   },
 
   async delete(id: string): Promise<ApiResponse<boolean>> {
     await delay(300);
+
+    const posts = getStoredPosts();
+    const post = posts.find((p) => p.id === id);
+
+    if (post) {
+      const folders = getStoredFolders();
+      const folderIndex = folders.findIndex((f) => f.id === post.folder_id);
+      if (folderIndex !== -1 && folders[folderIndex].post_count > 0) {
+        folders[folderIndex].post_count -= 1;
+        setStoredFolders(folders);
+      }
+    }
+
+    const filteredPosts = posts.filter((p) => p.id !== id);
+    setStoredPosts(filteredPosts);
+
     return { data: true, error: null, status: 200 };
   },
 };
@@ -291,8 +427,10 @@ export const postService = {
 export const commentService = {
   async getByPostId(postId: string): Promise<ApiResponse<Comment[]>> {
     await delay(300);
-    const comments = mockComments.filter((c) => c.post_id === postId);
-    return { data: comments, error: null, status: 200 };
+    const allComments = getStoredComments();
+    const postComments = allComments.filter((c) => c.post_id === postId);
+    const treeComments = buildCommentTree(postComments);
+    return { data: treeComments, error: null, status: 200 };
   },
 
   async create(data: Partial<Comment>): Promise<ApiResponse<Comment>> {
@@ -302,12 +440,27 @@ export const commentService = {
       post_id: data.post_id || "",
       parent_id: data.parent_id || null,
       author_name: data.author_name || "匿名",
+      anonymous_id: data.anonymous_id,
       content: data.content || "",
       is_admin: data.is_admin || false,
+      is_author: data.is_author || false,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     };
+
+    const allComments = getStoredComments();
+    allComments.push(newComment);
+    setStoredComments(allComments);
+
     return { data: newComment, error: null, status: 201 };
+  },
+
+  async delete(commentId: string): Promise<ApiResponse<boolean>> {
+    await delay(200);
+    const allComments = getStoredComments();
+    const filteredComments = allComments.filter((c) => c.id !== commentId);
+    setStoredComments(filteredComments);
+    return { data: true, error: null, status: 200 };
   },
 };
 
@@ -329,7 +482,11 @@ export const userService = {
         status: 200,
       };
     }
-    return { data: null, error: "Invalid credentials", status: 401 };
+    return {
+      data: null,
+      error: "Invalid credentials",
+      status: 401,
+    };
   },
 
   async logout(): Promise<ApiResponse<boolean>> {

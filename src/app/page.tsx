@@ -3,6 +3,7 @@
 import { useEffect, useState, useRef } from "react";
 import Link from "next/link";
 import { motion, AnimatePresence, Variants } from "framer-motion";
+import { Plus, Trash2, Edit2 } from "lucide-react";
 import * as LucideIcons from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { folderService } from "@/services/api";
@@ -10,11 +11,19 @@ import { Folder } from "@/types";
 import { cn } from "@/lib/utils";
 import { useTheme } from "@/hooks/useTheme";
 import { useAuth } from "@/hooks/useAuth";
+import { toast } from "sonner";
+import FolderDialog from "@/components/admin/FolderDialog";
+import DeleteConfirmDialog from "@/components/admin/DeleteConfirmDialog";
 
 const iconMap: Record<string, keyof typeof LucideIcons> = {
   "code-2": "Code2",
   camera: "Camera",
   lock: "Lock",
+  book: "Book",
+  music: "Music2",
+  heart: "Heart",
+  star: "Star",
+  folder: "Folder",
 };
 
 function getIconComponent(iconName: string | undefined) {
@@ -23,54 +32,17 @@ function getIconComponent(iconName: string | undefined) {
   return (LucideIcons as any)[iconKey] || LucideIcons.Folder;
 }
 
-const containerVariants: Variants = {
-  hidden: { opacity: 0 },
-  visible: {
-    opacity: 1,
-    transition: {
-      staggerChildren: 0.1,
-    },
-  },
-  exit: {
-    opacity: 0,
-    x: -100,
-    transition: { duration: 0.3 },
-  },
-};
-
-const itemVariants: Variants = {
-  hidden: { opacity: 0, y: 20 },
-  visible: {
-    opacity: 1,
-    y: 0,
-    transition: {
-      type: "spring" as const,
-      stiffness: 100,
-      damping: 12,
-    },
-  },
-};
-
 const pageVariants: Variants = {
-  initial: {
-    opacity: 0,
-    x: 100,
-  },
+  initial: { opacity: 0, x: 100 },
   animate: {
     opacity: 1,
     x: 0,
-    transition: {
-      duration: 0.5,
-      ease: "easeInOut",
-    },
+    transition: { duration: 0.5, ease: "easeInOut" },
   },
   exit: {
     opacity: 0,
     x: -100,
-    transition: {
-      duration: 0.3,
-      ease: "easeInOut",
-    },
+    transition: { duration: 0.3, ease: "easeInOut" },
   },
 };
 
@@ -80,6 +52,9 @@ export default function HomePage() {
   const [folders, setFolders] = useState<Folder[]>([]);
   const [loading, setLoading] = useState(true);
   const [modeKey, setModeKey] = useState(0);
+  const [isFolderDialogOpen, setIsFolderDialogOpen] = useState(false);
+  const [editingFolder, setEditingFolder] = useState<Folder | null>(null);
+  const [deletingFolder, setDeletingFolder] = useState<Folder | null>(null);
   const prevModeRef = useRef(isPrivateMode);
 
   useEffect(() => {
@@ -89,17 +64,51 @@ export default function HomePage() {
     }
   }, [isPrivateMode]);
 
+  const fetchFolders = async () => {
+    setLoading(true);
+    const response = await folderService.getAll(isPrivateMode);
+    if (response.data) {
+      setFolders(response.data);
+    }
+    setLoading(false);
+  };
+
   useEffect(() => {
-    const fetchFolders = async () => {
-      setLoading(true);
-      const response = await folderService.getAll(isPrivateMode);
-      if (response.data) {
-        setFolders(response.data);
-      }
-      setLoading(false);
-    };
     fetchFolders();
   }, [isPrivateMode]);
+
+  const handleCreateFolder = async (data: Partial<Folder>) => {
+    const response = await folderService.create(data);
+    if (response.data) {
+      toast.success("板块创建成功");
+      fetchFolders();
+    } else {
+      toast.error("创建失败");
+    }
+  };
+
+  const handleUpdateFolder = async (data: Partial<Folder>) => {
+    if (!editingFolder) return;
+    const response = await folderService.update(editingFolder.id, data);
+    if (response.data) {
+      toast.success("板块更新成功");
+      fetchFolders();
+    } else {
+      toast.error("更新失败");
+    }
+  };
+
+  const handleDeleteFolder = async () => {
+    if (!deletingFolder) return;
+    const response = await folderService.delete(deletingFolder.id);
+    if (response.data) {
+      toast.success("板块已删除");
+      setDeletingFolder(null);
+      fetchFolders();
+    } else {
+      toast.error("删除失败");
+    }
+  };
 
   return (
     <div
@@ -183,53 +192,107 @@ export default function HomePage() {
                       folder={folder}
                       Icon={Icon}
                       isPrivateMode={isPrivateMode}
+                      isAuthenticated={isAuthenticated}
+                      onEdit={() => {
+                        setEditingFolder(folder);
+                        setIsFolderDialogOpen(true);
+                      }}
+                      onDelete={() => setDeletingFolder(folder)}
                     />
                   );
                 })}
+
+            {isAuthenticated && (
+              <motion.div
+                initial={{ opacity: 0, scale: 0.9 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ delay: folders.length * 0.1 }}
+              >
+                <Card
+                  onClick={() => {
+                    setEditingFolder(null);
+                    setIsFolderDialogOpen(true);
+                  }}
+                  className={cn(
+                    "h-48 cursor-pointer transition-all duration-300 border-2 border-dashed flex items-center justify-center",
+                    isPrivateMode
+                      ? "bg-white/5 border-purple-500/30 hover:border-purple-500/50 hover:bg-white/10"
+                      : "border-gray-300 dark:border-gray-700 hover:border-indigo-400 dark:hover:border-indigo-500",
+                  )}
+                >
+                  <CardContent className="flex flex-col items-center gap-2">
+                    <Plus
+                      size={32}
+                      className={cn(
+                        isPrivateMode ? "text-purple-400" : "text-gray-400",
+                      )}
+                    />
+                    <span
+                      className={cn(
+                        "text-sm font-medium",
+                        isPrivateMode ? "text-gray-400" : "text-gray-500",
+                      )}
+                    >
+                      新建板块
+                    </span>
+                  </CardContent>
+                </Card>
+              </motion.div>
+            )}
           </motion.div>
         </AnimatePresence>
-
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.8 }}
-          className="mt-16 text-center"
-        >
-          <p
-            className={cn(
-              "text-sm transition-colors duration-500",
-              isPrivateMode
-                ? "text-gray-500"
-                : "text-gray-500 dark:text-gray-400",
-            )}
-          >
-            探索更多内容，了解我的技术思考和生活点滴
-          </p>
-        </motion.div>
       </div>
+
+      <FolderDialog
+        isOpen={isFolderDialogOpen}
+        onClose={() => {
+          setIsFolderDialogOpen(false);
+          setEditingFolder(null);
+        }}
+        onSubmit={editingFolder ? handleUpdateFolder : handleCreateFolder}
+        folder={editingFolder}
+        isPrivateMode={isPrivateMode}
+      />
+
+      <DeleteConfirmDialog
+        isOpen={!!deletingFolder}
+        onClose={() => setDeletingFolder(null)}
+        onConfirm={handleDeleteFolder}
+        title="删除板块"
+        message={`确定要删除「${deletingFolder?.title}」吗？该操作将同步删除文件夹内的所有文章，此操作不可撤销。`}
+        isPrivateMode={isPrivateMode}
+      />
     </div>
   );
+}
+
+interface FolderCardProps {
+  folder: Folder;
+  Icon: any;
+  isPrivateMode: boolean;
+  isAuthenticated: boolean;
+  onEdit: () => void;
+  onDelete: () => void;
 }
 
 function FolderCard({
   folder,
   Icon,
   isPrivateMode,
-}: {
-  folder: Folder;
-  Icon: any;
-  isPrivateMode: boolean;
-}) {
+  isAuthenticated,
+  onEdit,
+  onDelete,
+}: FolderCardProps) {
   return (
     <motion.div
-      variants={itemVariants}
       whileHover={{ scale: 1.02, y: -4 }}
       whileTap={{ scale: 0.98 }}
+      className="relative group"
     >
       <Link href={`/${folder.id}`}>
         <Card
           className={cn(
-            "h-full transition-all duration-300 cursor-pointer overflow-hidden group",
+            "h-full transition-all duration-300 cursor-pointer overflow-hidden",
             isPrivateMode
               ? "bg-white/5 border-purple-500/20 hover:border-purple-500/50 hover:bg-white/10"
               : "hover:shadow-xl dark:bg-gray-800/50",
@@ -293,6 +356,45 @@ function FolderCard({
           </CardContent>
         </Card>
       </Link>
+
+      {isAuthenticated && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          whileHover={{ opacity: 1 }}
+          className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity z-10"
+        >
+          <button
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              onEdit();
+            }}
+            className={cn(
+              "p-2 rounded-lg transition-colors",
+              isPrivateMode
+                ? "bg-white/10 text-gray-400 hover:text-white hover:bg-white/20"
+                : "bg-gray-100 text-gray-600 hover:text-indigo-600",
+            )}
+          >
+            <Edit2 size={16} />
+          </button>
+          <button
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              onDelete();
+            }}
+            className={cn(
+              "p-2 rounded-lg transition-colors",
+              isPrivateMode
+                ? "bg-white/10 text-gray-400 hover:text-red-400 hover:bg-red-500/20"
+                : "bg-gray-100 text-gray-600 hover:text-red-600",
+            )}
+          >
+            <Trash2 size={16} />
+          </button>
+        </motion.div>
+      )}
     </motion.div>
   );
 }
@@ -302,14 +404,8 @@ function PrivateModeBackground() {
     <div className="fixed inset-0 overflow-hidden pointer-events-none">
       <div className="absolute inset-0 bg-gradient-to-br from-purple-900/20 via-black to-pink-900/20" />
       <motion.div
-        animate={{
-          backgroundPosition: ["0% 0%", "100% 100%", "0% 0%"],
-        }}
-        transition={{
-          duration: 20,
-          repeat: Infinity,
-          ease: "linear",
-        }}
+        animate={{ backgroundPosition: ["0% 0%", "100% 100%", "0% 0%"] }}
+        transition={{ duration: 20, repeat: Infinity, ease: "linear" }}
         className="absolute inset-0 opacity-30"
         style={{
           background:
@@ -318,20 +414,12 @@ function PrivateModeBackground() {
         }}
       />
       <motion.div
-        animate={{
-          opacity: [0.3, 0.5, 0.3],
-        }}
-        transition={{
-          duration: 8,
-          repeat: Infinity,
-          ease: "easeInOut",
-        }}
+        animate={{ opacity: [0.3, 0.5, 0.3] }}
+        transition={{ duration: 8, repeat: Infinity, ease: "easeInOut" }}
         className="absolute top-1/4 left-1/4 w-96 h-96 bg-purple-600/10 rounded-full blur-3xl"
       />
       <motion.div
-        animate={{
-          opacity: [0.3, 0.5, 0.3],
-        }}
+        animate={{ opacity: [0.3, 0.5, 0.3] }}
         transition={{
           duration: 10,
           repeat: Infinity,

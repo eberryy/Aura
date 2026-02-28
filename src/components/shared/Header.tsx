@@ -104,22 +104,25 @@ export function Header() {
 
               {isAuthenticated ? (
                 <>
-                  <motion.div
-                    whileHover={{ scale: 1.05 }}
-                    whileTap={{ scale: 0.95 }}
-                  >
-                    <Button
-                      variant="ghost"
-                      className={cn(
-                        isPrivateMode
-                          ? "text-gray-300 hover:text-white hover:bg-white/10"
-                          : "",
-                      )}
+                  <Link href="/create">
+                    <motion.div
+                      whileHover={{ scale: 1.05 }}
+                      whileTap={{ scale: 0.95 }}
                     >
-                      <PenSquare size={18} />
-                      <span>发布</span>
-                    </Button>
-                  </motion.div>
+                      <Button
+                        variant="ghost"
+                        className={cn(
+                          "gap-2",
+                          isPrivateMode
+                            ? "text-gray-300 hover:text-white hover:bg-white/10"
+                            : "",
+                        )}
+                      >
+                        <PenSquare size={18} />
+                        <span>发布</span>
+                      </Button>
+                    </motion.div>
+                  </Link>
                   <motion.div
                     whileHover={{ scale: 1.05 }}
                     whileTap={{ scale: 0.95 }}

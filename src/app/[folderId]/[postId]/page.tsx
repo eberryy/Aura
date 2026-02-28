@@ -6,7 +6,7 @@ import Link from 'next/link';
 import { motion } from 'framer-motion';
 import Zoom from 'react-medium-image-zoom';
 import 'react-medium-image-zoom/dist/styles.css';
-import { ArrowLeft, Calendar, Eye, Tag, Edit, Lock, Play } from 'lucide-react';
+import { ArrowLeft, Calendar, Eye, Tag, Edit2, Lock, Play, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { postService, folderService } from '@/services/api';
@@ -17,7 +17,8 @@ import { useAuth } from '@/hooks/useAuth';
 import { PrivateModeBackground } from '@/components/shared/PrivateModeBackground';
 import CommentSection from '@/components/shared/CommentSection';
 import PostDetailSkeleton from '@/components/shared/PostDetailSkeleton';
-import EditButton from '@/components/shared/EditButton';
+import DeleteConfirmDialog from '@/components/admin/DeleteConfirmDialog';
+import { toast } from 'sonner';
 
 interface PostPageProps {
   params: Promise<{ folderId: string; postId: string }>;
@@ -32,37 +33,38 @@ export default function PostPage({ params }: PostPageProps) {
   const [folder, setFolder] = useState<Folder | null>(null);
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
+  const [deletingPost, setDeletingPost] = useState(false);
 
-  useEffect(() => {
-    const fetchData = async () => {
-      setLoading(true);
-      
-      const postResponse = await postService.getById(postId);
-      if (postResponse.error || !postResponse.data) {
-        setNotFound(true);
-        setLoading(false);
+  const fetchData = async () => {
+    setLoading(true);
+
+    const postResponse = await postService.getById(postId);
+    if (postResponse.error || !postResponse.data) {
+      setNotFound(true);
+      setLoading(false);
+      return;
+    }
+
+    const postData = postResponse.data;
+    setPost(postData);
+
+    const folderResponse = await folderService.getById(postData.folder_id);
+    if (folderResponse.data) {
+      const folderData = folderResponse.data;
+      setFolder(folderData);
+
+      if (folderData.is_private && !isAuthenticated && !authLoading) {
+        router.push('/');
         return;
       }
 
-      const postData = postResponse.data;
-      setPost(postData);
+      setPrivateMode(folderData.is_private);
+    }
 
-      const folderResponse = await folderService.getById(postData.folder_id);
-      if (folderResponse.data) {
-        const folderData = folderResponse.data;
-        setFolder(folderData);
+    setLoading(false);
+  };
 
-        if (folderData.is_private && !isAuthenticated && !authLoading) {
-          router.push('/');
-          return;
-        }
-
-        setPrivateMode(folderData.is_private);
-      }
-
-      setLoading(false);
-    };
-
+  useEffect(() => {
     fetchData();
   }, [postId, isAuthenticated, authLoading]);
 
@@ -71,6 +73,17 @@ export default function PostPage({ params }: PostPageProps) {
       router.push('/');
     }
   }, [folder, isAuthenticated, authLoading]);
+
+  const handleDeletePost = async () => {
+    if (!post) return;
+    const response = await postService.delete(post.id);
+    if (response.data) {
+      toast.success('文章已删除');
+      router.push(`/${folderId}`);
+    } else {
+      toast.error('删除失败');
+    }
+  };
 
   if (notFound) {
     return (
@@ -103,25 +116,61 @@ export default function PostPage({ params }: PostPageProps) {
               animate={{ opacity: 1, x: 0 }}
               className="mb-6"
             >
-              <div className="flex items-center gap-2">
-                <Button
-                  variant="ghost"
-                  onClick={() => router.push(`/${folderId}`)}
-                  className={cn(
-                    "gap-2",
-                    isPrivateMode ? "text-gray-300 hover:text-white hover:bg-white/10" : ""
-                  )}
-                >
-                  <ArrowLeft size={20} />
-                </Button>
-                <Link href={`/${folderId}`}>
-                  <span className={cn(
-                    "text-sm",
-                    isPrivateMode ? "text-gray-400 hover:text-white" : "text-gray-500 hover:text-gray-700"
-                  )}>
-                    {folder.title}
-                  </span>
-                </Link>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="ghost"
+                    onClick={() => router.push(`/${folderId}`)}
+                    className={cn(
+                      "gap-2",
+                      isPrivateMode ? "text-gray-300 hover:text-white hover:bg-white/10" : ""
+                    )}
+                  >
+                    <ArrowLeft size={20} />
+                  </Button>
+                  <Link href={`/${folderId}`}>
+                    <span className={cn(
+                      "text-sm",
+                      isPrivateMode ? "text-gray-400 hover:text-white" : "text-gray-500 hover:text-gray-700"
+                    )}>
+                      {folder.title}
+                    </span>
+                  </Link>
+                </div>
+
+                {isAuthenticated && (
+                  <div className="flex gap-2">
+                    <Link href={`/create?folderId=${folderId}&editPostId=${postId}`}>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className={cn(
+                          "gap-2",
+                          isPrivateMode
+                            ? "border-purple-500/30 text-purple-400 hover:bg-purple-500/20 hover:text-purple-300"
+                            : ""
+                        )}
+                      >
+                        <Edit2 size={16} />
+                        编辑
+                      </Button>
+                    </Link>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setDeletingPost(true)}
+                      className={cn(
+                        "gap-2",
+                        isPrivateMode
+                          ? "border-purple-500/30 text-gray-400 hover:text-red-400 hover:bg-red-500/20"
+                          : "hover:text-red-600"
+                      )}
+                    >
+                      <Trash2 size={16} />
+                      删除
+                    </Button>
+                  </div>
+                )}
               </div>
             </motion.div>
 
@@ -130,8 +179,6 @@ export default function PostPage({ params }: PostPageProps) {
               animate={{ opacity: 1, y: 0 }}
               className="relative"
             >
-              <EditButton postId={postId} folderId={folderId} />
-
               <Card className={cn(
                 "overflow-hidden mb-6",
                 isPrivateMode
@@ -206,6 +253,15 @@ export default function PostPage({ params }: PostPageProps) {
           </>
         ) : null}
       </div>
+
+      <DeleteConfirmDialog
+        isOpen={deletingPost}
+        onClose={() => setDeletingPost(false)}
+        onConfirm={handleDeletePost}
+        title="删除文章"
+        message={`确定要删除「${post?.title}」吗？此操作不可撤销。`}
+        isPrivateMode={isPrivateMode}
+      />
     </div>
   );
 }
