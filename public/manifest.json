@@ -1,0 +1,26 @@
+{
+  "name": "Aura - 个人数字空间",
+  "short_name": "Aura",
+  "description": "Aura - 一个兼具技术名片与私密自留地性质的个人数字空间",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#667eea",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/icon-192.svg",
+      "sizes": "192x192",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-512.svg",
+      "sizes": "512x512",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ],
+  "categories": ["personal", "social", "productivity"],
+  "lang": "zh-CN"
+}
