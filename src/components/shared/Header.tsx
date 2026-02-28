@@ -69,6 +69,25 @@ export function Header() {
             </Link>
 
             <nav className="hidden md:flex items-center gap-4">
+              {isAuthenticated && (
+                <motion.button
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  onClick={handlePrivateModeToggle}
+                  className={cn(
+                    "p-2 rounded-lg transition-colors flex items-center gap-2",
+                    isPrivateMode
+                      ? "text-purple-400 hover:text-purple-300 hover:bg-white/10"
+                      : "text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800",
+                  )}
+                >
+                  <Lock size={20} />
+                  <span className="text-sm">
+                    {isPrivateMode ? "树洞模式" : "公开模式"}
+                  </span>
+                </motion.button>
+              )}
+
               <motion.button
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
@@ -81,23 +100,6 @@ export function Header() {
                 )}
               >
                 {theme === "light" ? <Moon size={20} /> : <Sun size={20} />}
-              </motion.button>
-
-              <motion.button
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-                onClick={handlePrivateModeToggle}
-                className={cn(
-                  "p-2 rounded-lg transition-colors flex items-center gap-2",
-                  isPrivateMode
-                    ? "text-purple-400 hover:text-purple-300 hover:bg-white/10"
-                    : "text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800",
-                )}
-              >
-                <Lock size={20} />
-                <span className="text-sm">
-                  {isPrivateMode ? "树洞模式" : "公开模式"}
-                </span>
               </motion.button>
 
               {isAuthenticated ? (
@@ -182,6 +184,22 @@ export function Header() {
               )}
             >
               <div className="px-4 py-4 space-y-3">
+                {isAuthenticated && (
+                  <button
+                    onClick={handlePrivateModeToggle}
+                    className={cn(
+                      "flex items-center gap-3 w-full p-3 rounded-lg transition-colors",
+                      isPrivateMode
+                        ? "text-purple-400 hover:text-purple-300 hover:bg-white/10"
+                        : "hover:bg-gray-100 dark:hover:bg-gray-800",
+                    )}
+                  >
+                    <Lock size={20} />
+                    <span>
+                      {isPrivateMode ? "退出树洞模式" : "进入树洞模式"}
+                    </span>
+                  </button>
+                )}
                 <button
                   onClick={toggleTheme}
                   className={cn(
@@ -193,18 +211,6 @@ export function Header() {
                 >
                   {theme === "light" ? <Moon size={20} /> : <Sun size={20} />}
                   <span>{theme === "light" ? "切换深色" : "切换浅色"}</span>
-                </button>
-                <button
-                  onClick={handlePrivateModeToggle}
-                  className={cn(
-                    "flex items-center gap-3 w-full p-3 rounded-lg transition-colors",
-                    isPrivateMode
-                      ? "text-purple-400 hover:text-purple-300 hover:bg-white/10"
-                      : "hover:bg-gray-100 dark:hover:bg-gray-800",
-                  )}
-                >
-                  <Lock size={20} />
-                  <span>{isPrivateMode ? "退出树洞模式" : "进入树洞模式"}</span>
                 </button>
                 {isAuthenticated ? (
                   <>

@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import Link from "next/link";
-import { motion, Variants } from "framer-motion";
+import { motion, AnimatePresence, Variants } from "framer-motion";
 import * as LucideIcons from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { folderService } from "@/services/api";
@@ -31,6 +31,11 @@ const containerVariants: Variants = {
       staggerChildren: 0.1,
     },
   },
+  exit: {
+    opacity: 0,
+    x: -100,
+    transition: { duration: 0.3 },
+  },
 };
 
 const itemVariants: Variants = {
@@ -46,27 +51,60 @@ const itemVariants: Variants = {
   },
 };
 
+const pageVariants: Variants = {
+  initial: {
+    opacity: 0,
+    x: 100,
+  },
+  animate: {
+    opacity: 1,
+    x: 0,
+    transition: {
+      duration: 0.5,
+      ease: "easeInOut",
+    },
+  },
+  exit: {
+    opacity: 0,
+    x: -100,
+    transition: {
+      duration: 0.3,
+      ease: "easeInOut",
+    },
+  },
+};
+
 export default function HomePage() {
   const { isPrivateMode } = useTheme();
   const { isAuthenticated } = useAuth();
   const [folders, setFolders] = useState<Folder[]>([]);
   const [loading, setLoading] = useState(true);
+  const [modeKey, setModeKey] = useState(0);
+  const prevModeRef = useRef(isPrivateMode);
+
+  useEffect(() => {
+    if (prevModeRef.current !== isPrivateMode) {
+      setModeKey((prev) => prev + 1);
+      prevModeRef.current = isPrivateMode;
+    }
+  }, [isPrivateMode]);
 
   useEffect(() => {
     const fetchFolders = async () => {
-      const response = await folderService.getAll(isAuthenticated);
+      setLoading(true);
+      const response = await folderService.getAll(isPrivateMode);
       if (response.data) {
         setFolders(response.data);
       }
       setLoading(false);
     };
     fetchFolders();
-  }, [isAuthenticated]);
+  }, [isPrivateMode]);
 
   return (
     <div
       className={cn(
-        "min-h-screen transition-colors duration-500",
+        "min-h-screen transition-colors duration-700",
         isPrivateMode
           ? "bg-black"
           : "bg-gradient-to-b from-white to-gray-50 dark:from-black dark:to-gray-900",
@@ -86,7 +124,7 @@ export default function HomePage() {
             animate={{ scale: 1 }}
             transition={{ type: "spring", stiffness: 200, delay: 0.2 }}
             className={cn(
-              "inline-flex items-center justify-center w-24 h-24 rounded-3xl mb-6",
+              "inline-flex items-center justify-center w-24 h-24 rounded-3xl mb-6 transition-colors duration-500",
               isPrivateMode
                 ? "bg-gradient-to-br from-purple-600 to-pink-600"
                 : "bg-gradient-to-br from-indigo-500 to-purple-500",
@@ -96,7 +134,7 @@ export default function HomePage() {
           </motion.div>
           <h1
             className={cn(
-              "text-4xl md:text-5xl font-bold mb-4",
+              "text-4xl md:text-5xl font-bold mb-4 transition-colors duration-500",
               isPrivateMode ? "text-white" : "text-gray-900 dark:text-white",
             )}
           >
@@ -104,7 +142,7 @@ export default function HomePage() {
           </h1>
           <p
             className={cn(
-              "text-lg md:text-xl max-w-2xl mx-auto",
+              "text-lg md:text-xl max-w-2xl mx-auto transition-colors duration-500",
               isPrivateMode
                 ? "text-gray-400"
                 : "text-gray-600 dark:text-gray-400",
@@ -116,107 +154,40 @@ export default function HomePage() {
           </p>
         </motion.div>
 
-        <motion.div
-          variants={containerVariants}
-          initial="hidden"
-          animate="visible"
-          className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
-        >
-          {loading
-            ? Array.from({ length: 3 }).map((_, i) => (
-                <motion.div
-                  key={i}
-                  variants={itemVariants}
-                  className={cn(
-                    "h-48 rounded-2xl animate-pulse",
-                    isPrivateMode
-                      ? "bg-white/5"
-                      : "bg-gray-200 dark:bg-gray-800",
-                  )}
-                />
-              ))
-            : folders.map((folder, index) => {
-                const Icon = getIconComponent(folder.icon);
-                return (
+        <AnimatePresence mode="wait">
+          <motion.div
+            key={modeKey}
+            variants={pageVariants}
+            initial="initial"
+            animate="animate"
+            exit="exit"
+            className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
+          >
+            {loading
+              ? Array.from({ length: 3 }).map((_, i) => (
                   <motion.div
-                    key={folder.id}
-                    variants={itemVariants}
-                    whileHover={{ scale: 1.02, y: -4 }}
-                    whileTap={{ scale: 0.98 }}
-                  >
-                    <Link href={`/folder/${folder.id}`}>
-                      <Card
-                        className={cn(
-                          "h-full transition-all duration-300 cursor-pointer overflow-hidden group",
-                          isPrivateMode
-                            ? "bg-white/5 border-purple-500/20 hover:border-purple-500/50 hover:bg-white/10"
-                            : "hover:shadow-xl dark:bg-gray-800/50",
-                        )}
-                      >
-                        <CardContent className="p-6">
-                          <motion.div
-                            whileHover={{ rotate: 360 }}
-                            transition={{ duration: 0.5 }}
-                            className={cn(
-                              "inline-flex items-center justify-center w-14 h-14 rounded-2xl mb-4",
-                              isPrivateMode
-                                ? "bg-gradient-to-br from-purple-600/30 to-pink-600/30 text-purple-400"
-                                : "bg-gradient-to-br from-indigo-500/20 to-purple-500/20 text-indigo-500",
-                            )}
-                          >
-                            <Icon size={28} />
-                          </motion.div>
-                          <h3
-                            className={cn(
-                              "text-xl font-semibold mb-2",
-                              isPrivateMode
-                                ? "text-white"
-                                : "text-gray-900 dark:text-white",
-                            )}
-                          >
-                            {folder.title}
-                          </h3>
-                          <p
-                            className={cn(
-                              "text-sm mb-4 line-clamp-2",
-                              isPrivateMode
-                                ? "text-gray-400"
-                                : "text-gray-600 dark:text-gray-400",
-                            )}
-                          >
-                            {folder.description}
-                          </p>
-                          <div className="flex items-center justify-between">
-                            <span
-                              className={cn(
-                                "text-xs",
-                                isPrivateMode
-                                  ? "text-gray-500"
-                                  : "text-gray-500 dark:text-gray-400",
-                              )}
-                            >
-                              {folder.post_count} 篇文章
-                            </span>
-                            {folder.is_private && (
-                              <span
-                                className={cn(
-                                  "text-xs px-2 py-1 rounded-full",
-                                  isPrivateMode
-                                    ? "bg-purple-500/20 text-purple-400"
-                                    : "bg-indigo-100 text-indigo-600 dark:bg-indigo-900/30 dark:text-indigo-400",
-                                )}
-                              >
-                                私密
-                              </span>
-                            )}
-                          </div>
-                        </CardContent>
-                      </Card>
-                    </Link>
-                  </motion.div>
-                );
-              })}
-        </motion.div>
+                    key={i}
+                    className={cn(
+                      "h-48 rounded-2xl animate-pulse",
+                      isPrivateMode
+                        ? "bg-white/5"
+                        : "bg-gray-200 dark:bg-gray-800",
+                    )}
+                  />
+                ))
+              : folders.map((folder) => {
+                  const Icon = getIconComponent(folder.icon);
+                  return (
+                    <FolderCard
+                      key={folder.id}
+                      folder={folder}
+                      Icon={Icon}
+                      isPrivateMode={isPrivateMode}
+                    />
+                  );
+                })}
+          </motion.div>
+        </AnimatePresence>
 
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -226,7 +197,7 @@ export default function HomePage() {
         >
           <p
             className={cn(
-              "text-sm",
+              "text-sm transition-colors duration-500",
               isPrivateMode
                 ? "text-gray-500"
                 : "text-gray-500 dark:text-gray-400",
@@ -237,6 +208,92 @@ export default function HomePage() {
         </motion.div>
       </div>
     </div>
+  );
+}
+
+function FolderCard({
+  folder,
+  Icon,
+  isPrivateMode,
+}: {
+  folder: Folder;
+  Icon: any;
+  isPrivateMode: boolean;
+}) {
+  return (
+    <motion.div
+      variants={itemVariants}
+      whileHover={{ scale: 1.02, y: -4 }}
+      whileTap={{ scale: 0.98 }}
+    >
+      <Link href={`/${folder.id}`}>
+        <Card
+          className={cn(
+            "h-full transition-all duration-300 cursor-pointer overflow-hidden group",
+            isPrivateMode
+              ? "bg-white/5 border-purple-500/20 hover:border-purple-500/50 hover:bg-white/10"
+              : "hover:shadow-xl dark:bg-gray-800/50",
+          )}
+        >
+          <CardContent className="p-6">
+            <motion.div
+              whileHover={{ rotate: 360 }}
+              transition={{ duration: 0.5 }}
+              className={cn(
+                "inline-flex items-center justify-center w-14 h-14 rounded-2xl mb-4",
+                isPrivateMode
+                  ? "bg-gradient-to-br from-purple-600/30 to-pink-600/30 text-purple-400"
+                  : "bg-gradient-to-br from-indigo-500/20 to-purple-500/20 text-indigo-500",
+              )}
+            >
+              <Icon size={28} />
+            </motion.div>
+            <h3
+              className={cn(
+                "text-xl font-semibold mb-2",
+                isPrivateMode ? "text-white" : "text-gray-900 dark:text-white",
+              )}
+            >
+              {folder.title}
+            </h3>
+            <p
+              className={cn(
+                "text-sm mb-4 line-clamp-2",
+                isPrivateMode
+                  ? "text-gray-400"
+                  : "text-gray-600 dark:text-gray-400",
+              )}
+            >
+              {folder.description}
+            </p>
+            <div className="flex items-center justify-between">
+              <span
+                className={cn(
+                  "text-xs",
+                  isPrivateMode
+                    ? "text-gray-500"
+                    : "text-gray-500 dark:text-gray-400",
+                )}
+              >
+                {folder.post_count} 篇文章
+              </span>
+              {folder.is_private && (
+                <span
+                  className={cn(
+                    "text-xs px-2 py-1 rounded-full",
+                    isPrivateMode
+                      ? "bg-purple-500/20 text-purple-400"
+                      : "bg-indigo-100 text-indigo-600 dark:bg-indigo-900/30 dark:text-indigo-400",
+                  )}
+                >
+                  私密
+                </span>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      </Link>
+    </motion.div>
   );
 }
 

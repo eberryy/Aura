@@ -187,6 +187,30 @@ export const folderService = {
 };
 
 export const postService = {
+  async getByFolderId(
+    folderId: string,
+    page = 1,
+    pageSize = 10,
+  ): Promise<ApiResponse<PaginatedResponse<Post>>> {
+    await delay(300);
+    let posts = mockPosts.filter((p) => p.folder_id === folderId);
+    const total = posts.length;
+    const start = (page - 1) * pageSize;
+    const paginatedPosts = posts.slice(start, start + pageSize);
+
+    return {
+      data: {
+        data: paginatedPosts,
+        total,
+        page,
+        pageSize,
+        hasMore: start + pageSize < total,
+      },
+      error: null,
+      status: 200,
+    };
+  },
+
   async getAll(
     folderId?: string,
     page = 1,
