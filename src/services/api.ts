@@ -6,281 +6,235 @@ import {
   ApiResponse,
   PaginatedResponse,
 } from "@/types";
-import { getStorageItem, setStorageItem, STORAGE_KEYS } from "@/lib/storage";
+import { supabase, isSupabaseConfigured } from "@/lib/supabaseClient";
 import { buildCommentTree } from "@/lib/commentTree";
+import {
+  createFolderSchema,
+  updateFolderSchema,
+} from "@/lib/validations/folder";
+import { createPostSchema, updatePostSchema } from "@/lib/validations/post";
+import { createCommentSchema } from "@/lib/validations/comment";
 
-const mockFolders: Folder[] = [
-  {
-    id: "1",
-    title: "技术札记",
-    description: "前端开发、后端架构、技术思考",
-    type: "tech",
-    is_private: false,
-    icon: "code-2",
-    post_count: 12,
-    created_at: "2024-01-01T00:00:00Z",
-    updated_at: "2024-01-15T00:00:00Z",
-  },
-  {
-    id: "2",
-    title: "生活随笔",
-    description: "日常记录、摄影、旅行",
-    type: "life",
-    is_private: false,
-    icon: "camera",
-    post_count: 8,
-    created_at: "2024-01-02T00:00:00Z",
-    updated_at: "2024-01-10T00:00:00Z",
-  },
-  {
-    id: "3",
-    title: "树洞",
-    description: "只属于自己的秘密空间",
-    type: "private",
-    is_private: true,
-    icon: "lock",
-    post_count: 5,
-    created_at: "2024-01-03T00:00:00Z",
-    updated_at: "2024-01-12T00:00:00Z",
-  },
-];
-
-const mockPosts: Post[] = [
-  {
-    id: "1",
-    folder_id: "1",
-    title: "Next.js 15 新特性探索",
-    content: `# Next.js 15 新特性探索
-
-Next.js 15 带来了许多令人兴奋的新特性...
-
-## 主要更新
-
-### 1. 改进的 App Router
-- 更快的路由切换
-- 更好的错误处理
-
-### 2. 服务端组件优化
-- 流式渲染增强
-- 更小的打包体积
-
-## 总结
-
-这次更新让 Next.js 变得更加强大和易用。`,
-    content_type: "article",
-    summary: "探索 Next.js 15 的最新特性",
-    tags: ["Next.js", "React", "前端"],
-    is_pinned: true,
-    is_draft: false,
-    view_count: 1234,
-    created_at: "2024-01-15T10:00:00Z",
-    updated_at: "2024-01-15T10:00:00Z",
-  },
-  {
-    id: "2",
-    folder_id: "1",
-    title: "TypeScript 高级类型技巧",
-    content: `# TypeScript 高级类型技巧
-
-深入探讨 TypeScript 的高级类型系统...`,
-    content_type: "article",
-    summary: "TypeScript 类型体操入门",
-    tags: ["TypeScript", "前端"],
-    is_pinned: false,
-    is_draft: false,
-    view_count: 567,
-    created_at: "2024-01-10T14:00:00Z",
-    updated_at: "2024-01-10T14:00:00Z",
-  },
-  {
-    id: "3",
-    folder_id: "2",
-    title: "冬日摄影记录",
-    content: `# 冬日摄影记录
-
-记录这个冬天的美好瞬间...`,
-    content_type: "article",
-    summary: "冬日风景摄影作品",
-    tags: ["摄影", "生活"],
-    is_pinned: false,
-    is_draft: false,
-    view_count: 890,
-    created_at: "2024-01-08T18:00:00Z",
-    updated_at: "2024-01-08T18:00:00Z",
-  },
-];
-
-const initialComments: Comment[] = [
-  {
-    id: "1",
-    post_id: "1",
-    parent_id: null,
-    author_name: "访客A",
-    content: "写得真好，期待更多内容！",
-    is_admin: false,
-    created_at: "2024-01-15T12:00:00Z",
-    updated_at: "2024-01-15T12:00:00Z",
-    replies: [
-      {
-        id: "2",
-        post_id: "1",
-        parent_id: "1",
-        author_name: "博主",
-        content: "感谢支持！会继续更新的~",
-        is_admin: true,
-        created_at: "2024-01-15T13:00:00Z",
-        updated_at: "2024-01-15T13:00:00Z",
-      },
-    ],
-  },
-  {
-    id: "3",
-    post_id: "1",
-    parent_id: null,
-    author_name: "访客B",
-    content: "这个特性在实际项目中怎么应用？",
-    is_admin: false,
-    created_at: "2024-01-15T14:00:00Z",
-    updated_at: "2024-01-15T14:00:00Z",
-  },
-];
-
-function getStoredFolders(): Folder[] {
-  return getStorageItem<Folder[]>(STORAGE_KEYS.FOLDERS, mockFolders);
-}
-
-function setStoredFolders(folders: Folder[]): void {
-  setStorageItem(STORAGE_KEYS.FOLDERS, folders);
-}
-
-function getStoredPosts(): Post[] {
-  return getStorageItem<Post[]>(STORAGE_KEYS.POSTS, mockPosts);
-}
-
-function setStoredPosts(posts: Post[]): void {
-  setStorageItem(STORAGE_KEYS.POSTS, posts);
-}
-
-function getStoredComments(): Comment[] {
-  return getStorageItem<Comment[]>(STORAGE_KEYS.COMMENTS, initialComments);
-}
-
-function setStoredComments(comments: Comment[]): void {
-  setStorageItem(STORAGE_KEYS.COMMENTS, comments);
-}
-
-function initializeStorage(): void {
-  if (typeof window === "undefined") return;
-
-  const storedFolders = localStorage.getItem(STORAGE_KEYS.FOLDERS);
-  if (!storedFolders) {
-    setStoredFolders(mockFolders);
-  }
-
-  const storedPosts = localStorage.getItem(STORAGE_KEYS.POSTS);
-  if (!storedPosts) {
-    setStoredPosts(mockPosts);
-  }
-
-  const storedComments = localStorage.getItem(STORAGE_KEYS.COMMENTS);
-  if (!storedComments) {
-    setStoredComments(initialComments);
-  }
-}
-
-if (typeof window !== "undefined") {
-  initializeStorage();
-}
-
-const mockUser: User = {
-  id: "1",
-  username: "aura",
-  display_name: "Aura",
-  avatar: "/avatar.png",
-  bio: "前端开发者 / 摄影师 / 旅行爱好者",
-  role: "admin",
-  created_at: "2024-01-01T00:00:00Z",
-};
-
-const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+const notConfiguredError =
+  "Supabase is not configured. Please set NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY in .env.local";
 
 export const folderService = {
   async getAll(includePrivate = false): Promise<ApiResponse<Folder[]>> {
-    await delay(300);
-    let folders = getStoredFolders();
-    if (!includePrivate) {
-      folders = folders.filter((f) => !f.is_private);
+    if (!isSupabaseConfigured()) {
+      return { data: [], error: null, status: 200 };
     }
-    return { data: folders, error: null, status: 200 };
+
+    try {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+
+      let query = supabase
+        .from("folders")
+        .select("*")
+        .order("created_at", { ascending: false });
+
+      if (!includePrivate && !session) {
+        query = query.eq("is_private", false);
+      }
+
+      const { data, error } = await query;
+
+      if (error) {
+        return { data: null, error: error.message, status: 500 };
+      }
+
+      const folders: Folder[] = (data || []).map((item) => ({
+        id: item.id,
+        title: item.title,
+        description: item.description,
+        type: item.type || "tech",
+        is_private: item.is_private,
+        icon: item.icon,
+        post_count: item.post_count || 0,
+        created_at: item.created_at,
+        updated_at: item.updated_at,
+      }));
+
+      return { data: folders, error: null, status: 200 };
+    } catch (error) {
+      return {
+        data: null,
+        error: error instanceof Error ? error.message : "Unknown error",
+        status: 500,
+      };
+    }
   },
 
   async getById(id: string): Promise<ApiResponse<Folder>> {
-    await delay(200);
-    const folders = getStoredFolders();
-    const folder = folders.find((f) => f.id === id);
-    if (!folder) {
-      return { data: null, error: "Folder not found", status: 404 };
+    if (!isSupabaseConfigured()) {
+      return { data: null, error: notConfiguredError, status: 503 };
     }
-    return { data: folder, error: null, status: 200 };
+
+    try {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+
+      const { data, error } = await supabase
+        .from("folders")
+        .select("*")
+        .eq("id", id)
+        .single();
+
+      if (error) {
+        return { data: null, error: "Folder not found", status: 404 };
+      }
+
+      if (data.is_private && !session) {
+        return { data: null, error: "Access denied", status: 403 };
+      }
+
+      const folder: Folder = {
+        id: data.id,
+        title: data.title,
+        description: data.description,
+        type: data.type || "tech",
+        is_private: data.is_private,
+        icon: data.icon,
+        post_count: data.post_count || 0,
+        created_at: data.created_at,
+        updated_at: data.updated_at,
+      };
+
+      return { data: folder, error: null, status: 200 };
+    } catch (error) {
+      return {
+        data: null,
+        error: error instanceof Error ? error.message : "Unknown error",
+        status: 500,
+      };
+    }
   },
 
   async create(data: Partial<Folder>): Promise<ApiResponse<Folder>> {
-    await delay(300);
-    const newFolder: Folder = {
-      id: String(Date.now()),
-      title: data.title || "",
-      description: data.description || "",
-      type: data.type || "tech",
-      is_private: data.is_private || false,
-      icon: data.icon,
-      post_count: 0,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    };
+    if (!isSupabaseConfigured()) {
+      return { data: null, error: notConfiguredError, status: 503 };
+    }
 
-    const folders = getStoredFolders();
-    folders.push(newFolder);
-    setStoredFolders(folders);
+    try {
+      const validatedData = createFolderSchema.parse(data);
 
-    return { data: newFolder, error: null, status: 201 };
+      const { data: result, error } = await supabase
+        .from("folders")
+        .insert({
+          title: validatedData.title,
+          description: validatedData.description,
+          type: validatedData.type,
+          is_private: validatedData.is_private,
+          icon: validatedData.icon,
+        })
+        .select()
+        .single();
+
+      if (error) {
+        return { data: null, error: error.message, status: 400 };
+      }
+
+      const folder: Folder = {
+        id: result.id,
+        title: result.title,
+        description: result.description,
+        type: result.type || "tech",
+        is_private: result.is_private,
+        icon: result.icon,
+        post_count: result.post_count || 0,
+        created_at: result.created_at,
+        updated_at: result.updated_at,
+      };
+
+      return { data: folder, error: null, status: 201 };
+    } catch (error) {
+      if (error instanceof Error) {
+        return { data: null, error: error.message, status: 400 };
+      }
+      return { data: null, error: "Validation failed", status: 400 };
+    }
   },
 
   async update(
     id: string,
     data: Partial<Folder>,
   ): Promise<ApiResponse<Folder>> {
-    await delay(300);
-    const folders = getStoredFolders();
-    const index = folders.findIndex((f) => f.id === id);
-
-    if (index === -1) {
-      return { data: null, error: "Folder not found", status: 404 };
+    if (!isSupabaseConfigured()) {
+      return { data: null, error: notConfiguredError, status: 503 };
     }
 
-    const updatedFolder: Folder = {
-      ...folders[index],
-      ...data,
-      updated_at: new Date().toISOString(),
-    };
+    try {
+      const validatedData = updateFolderSchema.parse(data);
 
-    folders[index] = updatedFolder;
-    setStoredFolders(folders);
+      const { data: result, error } = await supabase
+        .from("folders")
+        .update({
+          ...validatedData,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", id)
+        .select()
+        .single();
 
-    return { data: updatedFolder, error: null, status: 200 };
+      if (error) {
+        return { data: null, error: error.message, status: 400 };
+      }
+
+      if (!result) {
+        return { data: null, error: "Folder not found", status: 404 };
+      }
+
+      const folder: Folder = {
+        id: result.id,
+        title: result.title,
+        description: result.description,
+        type: result.type || "tech",
+        is_private: result.is_private,
+        icon: result.icon,
+        post_count: result.post_count || 0,
+        created_at: result.created_at,
+        updated_at: result.updated_at,
+      };
+
+      return { data: folder, error: null, status: 200 };
+    } catch (error) {
+      if (error instanceof Error) {
+        return { data: null, error: error.message, status: 400 };
+      }
+      return { data: null, error: "Validation failed", status: 400 };
+    }
   },
 
   async delete(id: string): Promise<ApiResponse<boolean>> {
-    await delay(300);
+    if (!isSupabaseConfigured()) {
+      return { data: null, error: notConfiguredError, status: 503 };
+    }
 
-    const folders = getStoredFolders();
-    const filteredFolders = folders.filter((f) => f.id !== id);
-    setStoredFolders(filteredFolders);
+    try {
+      const { error: postsError } = await supabase
+        .from("posts")
+        .delete()
+        .eq("folder_id", id);
+      if (postsError) {
+        return { data: null, error: postsError.message, status: 400 };
+      }
 
-    const posts = getStoredPosts();
-    const filteredPosts = posts.filter((p) => p.folder_id !== id);
-    setStoredPosts(filteredPosts);
+      const { error } = await supabase.from("folders").delete().eq("id", id);
 
-    return { data: true, error: null, status: 200 };
+      if (error) {
+        return { data: null, error: error.message, status: 400 };
+      }
+
+      return { data: true, error: null, status: 200 };
+    } catch (error) {
+      return {
+        data: null,
+        error: error instanceof Error ? error.message : "Unknown error",
+        status: 500,
+      };
+    }
   },
 };
 
@@ -290,24 +244,85 @@ export const postService = {
     page = 1,
     pageSize = 10,
   ): Promise<ApiResponse<PaginatedResponse<Post>>> {
-    await delay(300);
-    const posts = getStoredPosts();
-    let filteredPosts = posts.filter((p) => p.folder_id === folderId);
-    const total = filteredPosts.length;
-    const start = (page - 1) * pageSize;
-    const paginatedPosts = filteredPosts.slice(start, start + pageSize);
+    if (!isSupabaseConfigured()) {
+      return {
+        data: { data: [], total: 0, page, pageSize, hasMore: false },
+        error: null,
+        status: 200,
+      };
+    }
 
-    return {
-      data: {
-        data: paginatedPosts,
-        total,
-        page,
-        pageSize,
-        hasMore: start + pageSize < total,
-      },
-      error: null,
-      status: 200,
-    };
+    try {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+
+      const { data: folder, error: folderError } = await supabase
+        .from("folders")
+        .select("is_private")
+        .eq("id", folderId)
+        .single();
+
+      if (folderError || !folder) {
+        return { data: null, error: "Folder not found", status: 404 };
+      }
+
+      if (folder.is_private && !session) {
+        return { data: null, error: "Access denied", status: 403 };
+      }
+
+      const from = (page - 1) * pageSize;
+      const to = from + pageSize - 1;
+
+      const { data, error, count } = await supabase
+        .from("posts")
+        .select("*", { count: "exact" })
+        .eq("folder_id", folderId)
+        .eq("is_draft", false)
+        .order("is_pinned", { ascending: false })
+        .order("created_at", { ascending: false })
+        .range(from, to);
+
+      if (error) {
+        return { data: null, error: error.message, status: 500 };
+      }
+
+      const posts: Post[] = (data || []).map((item) => ({
+        id: item.id,
+        folder_id: item.folder_id,
+        title: item.title,
+        content: item.content,
+        content_type: item.content_type || "article",
+        summary: item.summary,
+        cover_image: item.cover_image,
+        video_url: item.video_url,
+        video_description: item.video_description,
+        tags: item.tags || [],
+        is_pinned: item.is_pinned || false,
+        is_draft: item.is_draft || false,
+        view_count: item.view_count || 0,
+        created_at: item.created_at,
+        updated_at: item.updated_at,
+      }));
+
+      return {
+        data: {
+          data: posts,
+          total: count || 0,
+          page,
+          pageSize,
+          hasMore: from + pageSize < (count || 0),
+        },
+        error: null,
+        status: 200,
+      };
+    } catch (error) {
+      return {
+        data: null,
+        error: error instanceof Error ? error.message : "Unknown error",
+        status: 500,
+      };
+    }
   },
 
   async getAll(
@@ -315,182 +330,511 @@ export const postService = {
     page = 1,
     pageSize = 10,
   ): Promise<ApiResponse<PaginatedResponse<Post>>> {
-    await delay(300);
-    const posts = getStoredPosts();
-    let filteredPosts = folderId
-      ? posts.filter((p) => p.folder_id === folderId)
-      : posts;
-    const total = filteredPosts.length;
-    const start = (page - 1) * pageSize;
-    const paginatedPosts = filteredPosts.slice(start, start + pageSize);
+    if (!isSupabaseConfigured()) {
+      return {
+        data: { data: [], total: 0, page, pageSize, hasMore: false },
+        error: null,
+        status: 200,
+      };
+    }
 
-    return {
-      data: {
-        data: paginatedPosts,
-        total,
-        page,
-        pageSize,
-        hasMore: start + pageSize < total,
-      },
-      error: null,
-      status: 200,
-    };
+    try {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+
+      const from = (page - 1) * pageSize;
+      const to = from + pageSize - 1;
+
+      let query = supabase
+        .from("posts")
+        .select("*, folders!inner(is_private)", { count: "exact" })
+        .eq("is_draft", false)
+        .order("is_pinned", { ascending: false })
+        .order("created_at", { ascending: false })
+        .range(from, to);
+
+      if (folderId) {
+        query = query.eq("folder_id", folderId);
+      }
+
+      if (!session) {
+        query = query.eq("folders.is_private", false);
+      }
+
+      const { data, error, count } = await query;
+
+      if (error) {
+        return { data: null, error: error.message, status: 500 };
+      }
+
+      const posts: Post[] = (data || []).map((item: any) => ({
+        id: item.id,
+        folder_id: item.folder_id,
+        title: item.title,
+        content: item.content,
+        content_type: item.content_type || "article",
+        summary: item.summary,
+        cover_image: item.cover_image,
+        video_url: item.video_url,
+        video_description: item.video_description,
+        tags: item.tags || [],
+        is_pinned: item.is_pinned || false,
+        is_draft: item.is_draft || false,
+        view_count: item.view_count || 0,
+        created_at: item.created_at,
+        updated_at: item.updated_at,
+      }));
+
+      return {
+        data: {
+          data: posts,
+          total: count || 0,
+          page,
+          pageSize,
+          hasMore: from + pageSize < (count || 0),
+        },
+        error: null,
+        status: 200,
+      };
+    } catch (error) {
+      return {
+        data: null,
+        error: error instanceof Error ? error.message : "Unknown error",
+        status: 500,
+      };
+    }
   },
 
   async getById(id: string): Promise<ApiResponse<Post>> {
-    await delay(200);
-    const posts = getStoredPosts();
-    const post = posts.find((p) => p.id === id);
-    if (!post) {
-      return { data: null, error: "Post not found", status: 404 };
+    if (!isSupabaseConfigured()) {
+      return { data: null, error: notConfiguredError, status: 503 };
     }
-    return { data: post, error: null, status: 200 };
+
+    try {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+
+      const { data, error } = await supabase
+        .from("posts")
+        .select("*, folders!inner(is_private)")
+        .eq("id", id)
+        .single();
+
+      if (error || !data) {
+        return { data: null, error: "Post not found", status: 404 };
+      }
+
+      if (data.folders.is_private && !session) {
+        return { data: null, error: "Access denied", status: 403 };
+      }
+
+      await supabase
+        .from("posts")
+        .update({ view_count: (data.view_count || 0) + 1 })
+        .eq("id", id);
+
+      const post: Post = {
+        id: data.id,
+        folder_id: data.folder_id,
+        title: data.title,
+        content: data.content,
+        content_type: data.content_type || "article",
+        summary: data.summary,
+        cover_image: data.cover_image,
+        video_url: data.video_url,
+        video_description: data.video_description,
+        tags: data.tags || [],
+        is_pinned: data.is_pinned || false,
+        is_draft: data.is_draft || false,
+        view_count: (data.view_count || 0) + 1,
+        created_at: data.created_at,
+        updated_at: data.updated_at,
+      };
+
+      return { data: post, error: null, status: 200 };
+    } catch (error) {
+      return {
+        data: null,
+        error: error instanceof Error ? error.message : "Unknown error",
+        status: 500,
+      };
+    }
   },
 
   async create(data: Partial<Post>): Promise<ApiResponse<Post>> {
-    await delay(300);
-    const newPost: Post = {
-      id: String(Date.now()),
-      folder_id: data.folder_id || "",
-      title: data.title || "",
-      content: data.content || "",
-      content_type: data.content_type || "article",
-      summary: data.summary,
-      cover_image: data.cover_image,
-      video_url: data.video_url,
-      video_description: data.video_description,
-      tags: data.tags || [],
-      is_pinned: data.is_pinned || false,
-      is_draft: data.is_draft || false,
-      view_count: 0,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    };
-
-    const posts = getStoredPosts();
-    posts.push(newPost);
-    setStoredPosts(posts);
-
-    const folders = getStoredFolders();
-    const folderIndex = folders.findIndex((f) => f.id === newPost.folder_id);
-    if (folderIndex !== -1) {
-      folders[folderIndex].post_count += 1;
-      setStoredFolders(folders);
+    if (!isSupabaseConfigured()) {
+      return { data: null, error: notConfiguredError, status: 503 };
     }
 
-    return { data: newPost, error: null, status: 201 };
+    try {
+      const validatedData = createPostSchema.parse(data);
+
+      const { data: result, error } = await supabase
+        .from("posts")
+        .insert({
+          folder_id: validatedData.folder_id,
+          title: validatedData.title,
+          content: validatedData.content,
+          content_type: validatedData.content_type || "article",
+          summary: validatedData.summary,
+          cover_image: validatedData.cover_image,
+          video_url: validatedData.video_url,
+          video_description: validatedData.video_description,
+          tags: validatedData.tags || [],
+          is_pinned: validatedData.is_pinned || false,
+          is_draft: validatedData.is_draft || false,
+        })
+        .select()
+        .single();
+
+      if (error) {
+        return { data: null, error: error.message, status: 400 };
+      }
+
+      const post: Post = {
+        id: result.id,
+        folder_id: result.folder_id,
+        title: result.title,
+        content: result.content,
+        content_type: result.content_type || "article",
+        summary: result.summary,
+        cover_image: result.cover_image,
+        video_url: result.video_url,
+        video_description: result.video_description,
+        tags: result.tags || [],
+        is_pinned: result.is_pinned || false,
+        is_draft: result.is_draft || false,
+        view_count: result.view_count || 0,
+        created_at: result.created_at,
+        updated_at: result.updated_at,
+      };
+
+      return { data: post, error: null, status: 201 };
+    } catch (error) {
+      if (error instanceof Error) {
+        return { data: null, error: error.message, status: 400 };
+      }
+      return { data: null, error: "Validation failed", status: 400 };
+    }
   },
 
   async update(id: string, data: Partial<Post>): Promise<ApiResponse<Post>> {
-    await delay(300);
-    const posts = getStoredPosts();
-    const index = posts.findIndex((p) => p.id === id);
-
-    if (index === -1) {
-      return { data: null, error: "Post not found", status: 404 };
+    if (!isSupabaseConfigured()) {
+      return { data: null, error: notConfiguredError, status: 503 };
     }
 
-    const updatedPost: Post = {
-      ...posts[index],
-      ...data,
-      updated_at: new Date().toISOString(),
-    };
+    try {
+      const validatedData = updatePostSchema.parse(data);
 
-    posts[index] = updatedPost;
-    setStoredPosts(posts);
+      const { data: result, error } = await supabase
+        .from("posts")
+        .update({
+          ...validatedData,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", id)
+        .select()
+        .single();
 
-    return { data: updatedPost, error: null, status: 200 };
+      if (error) {
+        return { data: null, error: error.message, status: 400 };
+      }
+
+      if (!result) {
+        return { data: null, error: "Post not found", status: 404 };
+      }
+
+      const post: Post = {
+        id: result.id,
+        folder_id: result.folder_id,
+        title: result.title,
+        content: result.content,
+        content_type: result.content_type || "article",
+        summary: result.summary,
+        cover_image: result.cover_image,
+        video_url: result.video_url,
+        video_description: result.video_description,
+        tags: result.tags || [],
+        is_pinned: result.is_pinned || false,
+        is_draft: result.is_draft || false,
+        view_count: result.view_count || 0,
+        created_at: result.created_at,
+        updated_at: result.updated_at,
+      };
+
+      return { data: post, error: null, status: 200 };
+    } catch (error) {
+      if (error instanceof Error) {
+        return { data: null, error: error.message, status: 400 };
+      }
+      return { data: null, error: "Validation failed", status: 400 };
+    }
   },
 
   async delete(id: string): Promise<ApiResponse<boolean>> {
-    await delay(300);
-
-    const posts = getStoredPosts();
-    const post = posts.find((p) => p.id === id);
-
-    if (post) {
-      const folders = getStoredFolders();
-      const folderIndex = folders.findIndex((f) => f.id === post.folder_id);
-      if (folderIndex !== -1 && folders[folderIndex].post_count > 0) {
-        folders[folderIndex].post_count -= 1;
-        setStoredFolders(folders);
-      }
+    if (!isSupabaseConfigured()) {
+      return { data: null, error: notConfiguredError, status: 503 };
     }
 
-    const filteredPosts = posts.filter((p) => p.id !== id);
-    setStoredPosts(filteredPosts);
+    try {
+      const { error } = await supabase.from("posts").delete().eq("id", id);
 
-    return { data: true, error: null, status: 200 };
+      if (error) {
+        return { data: null, error: error.message, status: 400 };
+      }
+
+      return { data: true, error: null, status: 200 };
+    } catch (error) {
+      return {
+        data: null,
+        error: error instanceof Error ? error.message : "Unknown error",
+        status: 500,
+      };
+    }
   },
 };
 
 export const commentService = {
   async getByPostId(postId: string): Promise<ApiResponse<Comment[]>> {
-    await delay(300);
-    const allComments = getStoredComments();
-    const postComments = allComments.filter((c) => c.post_id === postId);
-    const treeComments = buildCommentTree(postComments);
-    return { data: treeComments, error: null, status: 200 };
+    if (!isSupabaseConfigured()) {
+      return { data: [], error: null, status: 200 };
+    }
+
+    try {
+      const { data, error } = await supabase
+        .from("comments")
+        .select("*")
+        .eq("post_id", postId)
+        .order("created_at", { ascending: true });
+
+      if (error) {
+        return { data: null, error: error.message, status: 500 };
+      }
+
+      const comments: Comment[] = (data || []).map((item) => ({
+        id: item.id,
+        post_id: item.post_id,
+        parent_id: item.parent_id,
+        author_name: item.author_name,
+        author_avatar: item.author_avatar,
+        anonymous_id: item.anonymous_id,
+        content: item.content,
+        is_admin: item.is_admin || false,
+        is_author: item.is_author || false,
+        created_at: item.created_at,
+        updated_at: item.updated_at,
+      }));
+
+      const treeComments = buildCommentTree(comments);
+
+      return { data: treeComments, error: null, status: 200 };
+    } catch (error) {
+      return {
+        data: null,
+        error: error instanceof Error ? error.message : "Unknown error",
+        status: 500,
+      };
+    }
   },
 
   async create(data: Partial<Comment>): Promise<ApiResponse<Comment>> {
-    await delay(300);
-    const newComment: Comment = {
-      id: String(Date.now()),
-      post_id: data.post_id || "",
-      parent_id: data.parent_id || null,
-      author_name: data.author_name || "匿名",
-      anonymous_id: data.anonymous_id,
-      content: data.content || "",
-      is_admin: data.is_admin || false,
-      is_author: data.is_author || false,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    };
+    if (!isSupabaseConfigured()) {
+      return { data: null, error: notConfiguredError, status: 503 };
+    }
 
-    const allComments = getStoredComments();
-    allComments.push(newComment);
-    setStoredComments(allComments);
+    try {
+      const validatedData = createCommentSchema.parse(data);
 
-    return { data: newComment, error: null, status: 201 };
+      const { data: result, error } = await supabase
+        .from("comments")
+        .insert({
+          post_id: validatedData.post_id,
+          parent_id: validatedData.parent_id ?? null,
+          author_name: validatedData.author_name,
+          anonymous_id: validatedData.anonymous_id,
+          content: validatedData.content,
+          is_admin: validatedData.is_admin,
+          is_author: validatedData.is_author,
+        })
+        .select()
+        .single();
+
+      if (error) {
+        return { data: null, error: error.message, status: 400 };
+      }
+
+      const comment: Comment = {
+        id: result.id,
+        post_id: result.post_id,
+        parent_id: result.parent_id,
+        author_name: result.author_name,
+        anonymous_id: result.anonymous_id,
+        content: result.content,
+        is_admin: result.is_admin || false,
+        is_author: result.is_author || false,
+        created_at: result.created_at,
+        updated_at: result.updated_at,
+      };
+
+      return { data: comment, error: null, status: 201 };
+    } catch (error) {
+      if (error instanceof Error) {
+        return { data: null, error: error.message, status: 400 };
+      }
+      return { data: null, error: "Validation failed", status: 400 };
+    }
   },
 
   async delete(commentId: string): Promise<ApiResponse<boolean>> {
-    await delay(200);
-    const allComments = getStoredComments();
-    const filteredComments = allComments.filter((c) => c.id !== commentId);
-    setStoredComments(filteredComments);
-    return { data: true, error: null, status: 200 };
+    if (!isSupabaseConfigured()) {
+      return { data: null, error: notConfiguredError, status: 503 };
+    }
+
+    try {
+      const { error } = await supabase
+        .from("comments")
+        .delete()
+        .eq("id", commentId);
+
+      if (error) {
+        return { data: null, error: error.message, status: 400 };
+      }
+
+      return { data: true, error: null, status: 200 };
+    } catch (error) {
+      return {
+        data: null,
+        error: error instanceof Error ? error.message : "Unknown error",
+        status: 500,
+      };
+    }
   },
 };
 
 export const userService = {
   async getProfile(): Promise<ApiResponse<User>> {
-    await delay(200);
-    return { data: mockUser, error: null, status: 200 };
+    if (!isSupabaseConfigured()) {
+      return { data: null, error: notConfiguredError, status: 503 };
+    }
+
+    try {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      if (!user) {
+        return { data: null, error: "Not authenticated", status: 401 };
+      }
+
+      const { data: profile, error } = await supabase
+        .from("profiles")
+        .select("*")
+        .eq("id", user.id)
+        .single();
+
+      if (error) {
+        const newUser: User = {
+          id: user.id,
+          username: user.email?.split("@")[0] || "user",
+          display_name:
+            user.user_metadata?.display_name ||
+            user.email?.split("@")[0] ||
+            "User",
+          avatar: user.user_metadata?.avatar_url,
+          bio: user.user_metadata?.bio,
+          role: "user",
+          created_at: user.created_at,
+        };
+        return { data: newUser, error: null, status: 200 };
+      }
+
+      const userProfile: User = {
+        id: profile.id,
+        username: profile.username || user.email?.split("@")[0] || "user",
+        display_name:
+          profile.display_name || user.email?.split("@")[0] || "User",
+        avatar: profile.avatar_url,
+        bio: profile.bio,
+        role: profile.role || "user",
+        created_at: profile.created_at || user.created_at,
+      };
+
+      return { data: userProfile, error: null, status: 200 };
+    } catch (error) {
+      return {
+        data: null,
+        error: error instanceof Error ? error.message : "Unknown error",
+        status: 500,
+      };
+    }
   },
 
   async login(
-    username: string,
+    email: string,
     password: string,
-  ): Promise<ApiResponse<{ user: User; token: string }>> {
-    await delay(500);
-    if (username === "admin" && password === "aura123") {
+  ): Promise<ApiResponse<{ user: User; session: any }>> {
+    if (!isSupabaseConfigured()) {
+      return { data: null, error: notConfiguredError, status: 503 };
+    }
+
+    try {
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+
+      if (error) {
+        return { data: null, error: error.message, status: 401 };
+      }
+
+      const user: User = {
+        id: data.user.id,
+        username: data.user.email?.split("@")[0] || "user",
+        display_name:
+          data.user.user_metadata?.display_name ||
+          data.user.email?.split("@")[0] ||
+          "User",
+        avatar: data.user.user_metadata?.avatar_url,
+        bio: data.user.user_metadata?.bio,
+        role: "user",
+        created_at: data.user.created_at,
+      };
+
       return {
-        data: { user: mockUser, token: "mock-jwt-token" },
+        data: { user, session: data.session },
         error: null,
         status: 200,
       };
+    } catch (error) {
+      return {
+        data: null,
+        error: error instanceof Error ? error.message : "Unknown error",
+        status: 500,
+      };
     }
-    return {
-      data: null,
-      error: "Invalid credentials",
-      status: 401,
-    };
   },
 
   async logout(): Promise<ApiResponse<boolean>> {
-    await delay(200);
-    return { data: true, error: null, status: 200 };
+    if (!isSupabaseConfigured()) {
+      return { data: true, error: null, status: 200 };
+    }
+
+    try {
+      const { error } = await supabase.auth.signOut();
+
+      if (error) {
+        return { data: null, error: error.message, status: 400 };
+      }
+
+      return { data: true, error: null, status: 200 };
+    } catch (error) {
+      return {
+        data: null,
+        error: error instanceof Error ? error.message : "Unknown error",
+        status: 500,
+      };
+    }
   },
 };

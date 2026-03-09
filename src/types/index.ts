@@ -5,7 +5,7 @@ export type ThemeMode = "light" | "dark";
 export interface Folder {
   id: string;
   title: string;
-  description: string;
+  description?: string;
   type: FolderType;
   is_private: boolean;
   cover_image?: string;

@@ -43,7 +43,7 @@ export default function FolderDialog({
   useEffect(() => {
     if (folder) {
       setTitle(folder.title);
-      setDescription(folder.description);
+      setDescription(folder.description || '');
       setIcon(folder.icon || 'folder');
       setIsPrivate(folder.is_private);
     } else {
