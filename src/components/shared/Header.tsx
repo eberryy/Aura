@@ -12,18 +12,21 @@ import {
   User,
   LogOut,
   PenSquare,
+  MessageSquare,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useTheme } from "@/hooks/useTheme";
 import { useAuth } from "@/hooks/useAuth";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
+import { NoteDialog } from "./NoteDialog";
 
 export function Header() {
   const { theme, toggleTheme, isPrivateMode, setPrivateMode } = useTheme();
   const { user, isAuthenticated, logout } = useAuth();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isLoginOpen, setIsLoginOpen] = useState(false);
+  const [isNoteDialogOpen, setIsNoteDialogOpen] = useState(false);
 
   const handlePrivateModeToggle = () => {
     setPrivateMode(!isPrivateMode);
@@ -123,6 +126,20 @@ export function Header() {
                       </Button>
                     </motion.div>
                   </Link>
+                  <motion.button
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
+                    onClick={() => setIsNoteDialogOpen(true)}
+                    className={cn(
+                      "p-2 rounded-lg transition-colors flex items-center gap-2",
+                      isPrivateMode
+                        ? "text-purple-400 hover:text-purple-300 hover:bg-white/10"
+                        : "text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800",
+                    )}
+                  >
+                    <MessageSquare size={18} />
+                    <span className="text-sm">Note管理</span>
+                  </motion.button>
                   <motion.div
                     whileHover={{ scale: 1.05 }}
                     whileTap={{ scale: 0.95 }}
@@ -230,6 +247,21 @@ export function Header() {
                       <span>发布</span>
                     </Link>
                     <button
+                      onClick={() => {
+                        setIsMenuOpen(false);
+                        setIsNoteDialogOpen(true);
+                      }}
+                      className={cn(
+                        "flex items-center gap-3 w-full p-3 rounded-lg transition-colors",
+                        isPrivateMode
+                          ? "text-purple-400 hover:text-purple-300 hover:bg-white/10"
+                          : "hover:bg-gray-100 dark:hover:bg-gray-800",
+                      )}
+                    >
+                      <MessageSquare size={20} />
+                      <span>Note管理</span>
+                    </button>
+                    <button
                       onClick={logout}
                       className={cn(
                         "flex items-center gap-3 w-full p-3 rounded-lg transition-colors",
@@ -264,6 +296,15 @@ export function Header() {
 
       <AnimatePresence>
         {isLoginOpen && <LoginDialog onClose={() => setIsLoginOpen(false)} />}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {isNoteDialogOpen && (
+          <NoteDialog
+            isOpen={isNoteDialogOpen}
+            onClose={() => setIsNoteDialogOpen(false)}
+          />
+        )}
       </AnimatePresence>
     </>
   );

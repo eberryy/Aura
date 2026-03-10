@@ -125,7 +125,7 @@ export default function HomePage() {
       <div className="relative max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         <div className="relative z-10 text-center mb-8">
           {isPrivateMode && (
-            <div className="absolute inset-0 -z-10 pointer-events-none">
+            <div className="absolute inset-0 -z-10">
               <EmotionWall isVisible={true} />
             </div>
           )}

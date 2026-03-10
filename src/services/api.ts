@@ -303,6 +303,83 @@ export const noteService = {
       };
     }
   },
+
+  async update(id: string, content: string): Promise<ApiResponse<Note>> {
+    if (!isSupabaseConfigured()) {
+      return { data: null, error: notConfiguredError, status: 503 };
+    }
+
+    try {
+      const { data, error } = await supabase
+        .from("notes")
+        .update({ content })
+        .eq("id", id)
+        .select()
+        .single();
+
+      if (error) {
+        return { data: null, error: error.message, status: 400 };
+      }
+
+      const note: Note = {
+        id: data.id,
+        content: data.content,
+        created_at: data.created_at,
+      };
+
+      return { data: note, error: null, status: 200 };
+    } catch (error) {
+      return {
+        data: null,
+        error: error instanceof Error ? error.message : "Unknown error",
+        status: 500,
+      };
+    }
+  },
+
+  async delete(id: string): Promise<ApiResponse<void>> {
+    if (!isSupabaseConfigured()) {
+      return { data: null, error: notConfiguredError, status: 503 };
+    }
+
+    try {
+      const { error } = await supabase.from("notes").delete().eq("id", id);
+
+      if (error) {
+        return { data: null, error: error.message, status: 400 };
+      }
+
+      return { data: undefined, error: null, status: 200 };
+    } catch (error) {
+      return {
+        data: null,
+        error: error instanceof Error ? error.message : "Unknown error",
+        status: 500,
+      };
+    }
+  },
+
+  async deleteMany(ids: string[]): Promise<ApiResponse<void>> {
+    if (!isSupabaseConfigured()) {
+      return { data: null, error: notConfiguredError, status: 503 };
+    }
+
+    try {
+      const { error } = await supabase.from("notes").delete().in("id", ids);
+
+      if (error) {
+        return { data: null, error: error.message, status: 400 };
+      }
+
+      return { data: undefined, error: null, status: 200 };
+    } catch (error) {
+      return {
+        data: null,
+        error: error instanceof Error ? error.message : "Unknown error",
+        status: 500,
+      };
+    }
+  },
 };
 
 export const postService = {
