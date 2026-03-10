@@ -59,6 +59,12 @@ export interface User {
   created_at: string;
 }
 
+export interface Note {
+  id: string;
+  content: string;
+  created_at: string;
+}
+
 export interface PageMetadata {
   title: string;
   description?: string;

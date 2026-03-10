@@ -14,6 +14,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
 import FolderDialog from "@/components/admin/FolderDialog";
 import DeleteConfirmDialog from "@/components/admin/DeleteConfirmDialog";
+import EmotionWall from "@/components/shared/EmotionWall";
 
 const iconMap: Record<string, keyof typeof LucideIcons> = {
   "code-2": "Code2",
@@ -122,46 +123,52 @@ export default function HomePage() {
       {isPrivateMode && <PrivateModeBackground />}
 
       <div className="relative max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-        <motion.div
-          initial={{ opacity: 0, y: 30 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6 }}
-          className="text-center mb-16"
-        >
+        <div className="relative z-10 text-center mb-8">
+          {isPrivateMode && (
+            <div className="absolute inset-0 -z-10 pointer-events-none">
+              <EmotionWall isVisible={true} />
+            </div>
+          )}
           <motion.div
-            initial={{ scale: 0 }}
-            animate={{ scale: 1 }}
-            transition={{ type: "spring", stiffness: 200, delay: 0.2 }}
-            className={cn(
-              "inline-flex items-center justify-center w-24 h-24 rounded-3xl mb-6 transition-colors duration-500",
-              isPrivateMode
-                ? "bg-gradient-to-br from-purple-600 to-pink-600"
-                : "bg-gradient-to-br from-indigo-500 to-purple-500",
-            )}
+            initial={{ opacity: 0, y: 30 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6 }}
           >
-            <span className="text-4xl text-white font-bold">A</span>
+            <motion.div
+              initial={{ scale: 0 }}
+              animate={{ scale: 1 }}
+              transition={{ type: "spring", stiffness: 200, delay: 0.2 }}
+              className={cn(
+                "inline-flex items-center justify-center w-24 h-24 rounded-3xl mb-6 transition-colors duration-500",
+                isPrivateMode
+                  ? "bg-gradient-to-br from-purple-600 to-pink-600"
+                  : "bg-gradient-to-br from-indigo-500 to-purple-500",
+              )}
+            >
+              <span className="text-4xl text-white font-bold">A</span>
+            </motion.div>
+            <h1
+              className={cn(
+                "text-4xl md:text-5xl font-bold mb-4 transition-colors duration-500",
+                isPrivateMode ? "text-white" : "text-gray-900 dark:text-white",
+              )}
+            >
+              欢迎来到 Aura
+            </h1>
+            <p
+              className={cn(
+                "text-lg md:text-xl max-w-2xl mx-auto transition-colors duration-500",
+                isPrivateMode
+                  ? "text-gray-400"
+                  : "text-gray-600 dark:text-gray-400",
+              )}
+            >
+              {isPrivateMode
+                ? "这里是只属于你的秘密空间"
+                : "一个兼具技术名片与私密自留地性质的个人数字空间"}
+            </p>
           </motion.div>
-          <h1
-            className={cn(
-              "text-4xl md:text-5xl font-bold mb-4 transition-colors duration-500",
-              isPrivateMode ? "text-white" : "text-gray-900 dark:text-white",
-            )}
-          >
-            欢迎来到 Aura
-          </h1>
-          <p
-            className={cn(
-              "text-lg md:text-xl max-w-2xl mx-auto transition-colors duration-500",
-              isPrivateMode
-                ? "text-gray-400"
-                : "text-gray-600 dark:text-gray-400",
-            )}
-          >
-            {isPrivateMode
-              ? "这里是只属于你的秘密空间"
-              : "一个兼具技术名片与私密自留地性质的个人数字空间"}
-          </p>
-        </motion.div>
+        </div>
 
         <AnimatePresence mode="wait">
           <motion.div

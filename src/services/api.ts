@@ -3,6 +3,7 @@ import {
   Post,
   Comment,
   User,
+  Note,
   ApiResponse,
   PaginatedResponse,
 } from "@/types";
@@ -228,6 +229,72 @@ export const folderService = {
       }
 
       return { data: true, error: null, status: 200 };
+    } catch (error) {
+      return {
+        data: null,
+        error: error instanceof Error ? error.message : "Unknown error",
+        status: 500,
+      };
+    }
+  },
+};
+
+export const noteService = {
+  async getAll(): Promise<ApiResponse<Note[]>> {
+    if (!isSupabaseConfigured()) {
+      return { data: [], error: null, status: 200 };
+    }
+
+    try {
+      const { data, error } = await supabase
+        .from("notes")
+        .select("*")
+        .order("created_at", { ascending: false })
+        .limit(50);
+
+      if (error) {
+        return { data: null, error: error.message, status: 500 };
+      }
+
+      const notes: Note[] = (data || []).map((item) => ({
+        id: item.id,
+        content: item.content,
+        created_at: item.created_at,
+      }));
+
+      return { data: notes, error: null, status: 200 };
+    } catch (error) {
+      return {
+        data: null,
+        error: error instanceof Error ? error.message : "Unknown error",
+        status: 500,
+      };
+    }
+  },
+
+  async create(content: string): Promise<ApiResponse<Note>> {
+    if (!isSupabaseConfigured()) {
+      return { data: null, error: notConfiguredError, status: 503 };
+    }
+
+    try {
+      const { data, error } = await supabase
+        .from("notes")
+        .insert({ content })
+        .select()
+        .single();
+
+      if (error) {
+        return { data: null, error: error.message, status: 400 };
+      }
+
+      const note: Note = {
+        id: data.id,
+        content: data.content,
+        created_at: data.created_at,
+      };
+
+      return { data: note, error: null, status: 201 };
     } catch (error) {
       return {
         data: null,
